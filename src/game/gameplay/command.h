@@ -1,0 +1,157 @@
+#pragma once
+#include <cstdint>
+
+#include "game/gameplay/entity.h"
+
+struct LevelData;
+
+enum class CMD_TYPE : uint8_t {
+    NONE = 0,
+    MOVE = 1,
+    ROTATE = 2,
+    MODIFY_BEHAVIOUR = 3,
+    ADD = 4,
+    REMOVE = 5,
+    SWAP_ACTIVE = 6,
+};
+
+struct Command {
+    CMD_TYPE type = CMD_TYPE::NONE;
+    uint32_t timestamp;
+};
+
+struct MoveCommand : Command {
+    Entity* entity;
+    int xDir;
+    int yDir;
+
+    MoveCommand( Entity* _entity, int _xDir, int _yDir ) {
+        entity = _entity;
+        xDir = _xDir;
+        yDir = _yDir;
+        type = CMD_TYPE::MOVE;
+    }
+};
+
+struct RotateCommand : Command {
+    Entity* entity;
+    Direction from;
+    Direction to;
+
+    RotateCommand( Entity* _entity, Direction _from, Direction _to ) {
+        entity = _entity;
+        from = _from;
+        to = _to;
+        type = CMD_TYPE::ROTATE;
+    }
+};
+
+struct ModifyBehaviourCommand : Command {
+    enum Mode {
+        ADD,
+        REMOVE
+    };
+
+    Entity* entity;
+    Behaviour flag;
+    Mode mode;
+
+    ModifyBehaviourCommand( Entity* _entity, Behaviour _flag, Mode _mode ) {
+        entity = _entity;
+        flag = _flag;
+        mode = _mode;
+        type = CMD_TYPE::MODIFY_BEHAVIOUR;
+    }
+};
+
+struct AddCommand : Command {
+    int x;
+    int y;
+    ENTITY_ID id;
+
+    AddCommand( int _x, int _y, ENTITY_ID _id ) {
+        x = _x;
+        y = _y;
+        id = _id;
+        type = CMD_TYPE::ADD;
+    }
+};
+
+struct RemoveCommand : Command {
+    int x;
+    int y;
+    Behaviour storedBehaviour;
+    ENTITY_ID storedID;
+
+    RemoveCommand( Entity* entity ) {
+        x = entity->x;
+        y = entity->y;
+        storedBehaviour = entity->behaviour;
+        storedID = entity->id;
+        type = CMD_TYPE::REMOVE;
+    }
+};
+
+struct SwapActiveEntityCommand : Command {
+    int index_current;
+    int index_previous;
+    int* value_to_change;
+
+    SwapActiveEntityCommand( int* activeEntityIndex, int limit ) {
+        index_previous = *activeEntityIndex;
+        index_current = *activeEntityIndex + 1;
+        value_to_change = activeEntityIndex;
+        index_current %= limit;
+        type = CMD_TYPE::SWAP_ACTIVE;
+    }
+};
+
+union AnyCommand {
+    Command command;
+    MoveCommand move;
+    RotateCommand rotate;
+    ModifyBehaviourCommand modify;
+    AddCommand add;
+    RemoveCommand remove;
+    SwapActiveEntityCommand swap_active;
+
+    AnyCommand( MoveCommand mov ) {
+        move = mov;
+    }
+
+    AnyCommand( RotateCommand rot ) {
+        rotate = rot;
+    }
+
+    AnyCommand( ModifyBehaviourCommand mod ) {
+        modify = mod;
+    }
+
+    AnyCommand( AddCommand _add ) {
+        add = _add;
+    }
+
+    AnyCommand( RemoveCommand rem ) {
+        remove = rem;
+    }
+
+    AnyCommand( SwapActiveEntityCommand swp ) {
+        swap_active = swp;
+    }
+};
+
+struct CommandBuffer {
+    AnyCommand* allCommands;
+    uint32_t timestamp;
+    int capacity;
+    int index;
+    int head;
+};
+
+void Push( CommandBuffer* buffer, AnyCommand cmd, LevelData* level );
+
+void Undo( CommandBuffer* buffer, LevelData* level );
+
+void Redo( CommandBuffer* buffer, LevelData* level );
+
+void ResetCommandBuffer( CommandBuffer* buffer );

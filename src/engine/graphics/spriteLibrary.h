@@ -1,0 +1,97 @@
+#pragma once
+#include <SDL3/SDL_render.h>
+#include "engine/memory/arena.h"
+#include "engine/graphics/dungeonSprites.h"
+#include "game/gameplay/entity.h"
+
+const int NOT_SET = -1;
+
+struct Sprite {
+    SDL_Texture* texture;
+    int width;
+    int height;
+    int pivot_x;
+    int pivot_y;
+    int sprite_count_x;
+    int sprite_count_y;
+    int framerate;
+    SDL_FRect* frames;
+    int frame_count;
+};
+
+inline int GetSpriteCount( Sprite* sprite ) {
+    if (sprite->frames != nullptr)
+        return sprite->frame_count;
+    if (sprite->sprite_count_x == NOT_SET)
+        return 1;
+    if (sprite->sprite_count_y == NOT_SET)
+        return 1;
+    return sprite->sprite_count_x * sprite->sprite_count_y;
+}
+
+struct SpriteRenderInfo {
+    Sprite* sprite;
+    int frame;
+    bool flipped;
+
+    SpriteRenderInfo() {
+        sprite = nullptr;
+        frame = 0;
+        flipped = false;
+    }
+
+    SpriteRenderInfo( int frame, Sprite* sprite ) {
+        this->frame = frame;
+        this->sprite = sprite;
+        this->flipped = false;
+    }
+
+    SpriteRenderInfo( int frame, Sprite* sprite, bool flipped ) {
+        this->frame = frame;
+        this->sprite = sprite;
+        this->flipped = flipped;
+    }
+
+    SpriteRenderInfo( Sprite* sprite ) {
+        this->sprite = sprite;
+        this->frame = 0;
+        this->flipped = false;
+    }
+};
+
+
+enum class SPRITE_ID {
+    Fallback,
+    Dropshadow,
+    titlescreen_background,
+    black_1x1,
+    dungeon_tileset,
+    selection_marker,
+    Goal,
+    Menu_Horizon,
+    Menu_Cloud_Back,
+    Menu_Cloud_Front,
+    Menu_Middle,
+    Menu_Front,
+    Button_Basic,
+#define FANTASYARENA_SPRITE_ENTRY(name) name,
+    DUNGEON_SPRITE_LIST(FANTASYARENA_SPRITE_ENTRY)
+#undef FANTASYARENA_SPRITE_ENTRY
+    COUNT // COUNT = antal, sista värdet
+};
+
+class SpriteLibrary {
+public:
+    void LoadAll( SDL_Renderer* renderer, Memory::Arena* arena );
+
+    SpriteRenderInfo GetSprite( ENTITY_ID id ) const;
+
+    SpriteRenderInfo GetSprite_FromEntityState( const Entity* entity, const uint64_t* ticks_total ) const;
+
+    Sprite* GetSprite( SPRITE_ID id ) const;
+
+private:
+    void LoadDungeonSprites( Memory::Arena* arena );
+
+    Sprite* sprites[(int) SPRITE_ID::COUNT] = {};
+};

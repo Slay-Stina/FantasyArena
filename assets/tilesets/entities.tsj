@@ -1,0 +1,14 @@
+{ "columns":11,
+ "image":"..\/sprites\/entities.png",
+ "imageheight":36,
+ "imagewidth":352,
+ "margin":0,
+ "name":"entities",
+ "spacing":0,
+ "tilecount":11,
+ "tiledversion":"1.12.2",
+ "tileheight":36,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}

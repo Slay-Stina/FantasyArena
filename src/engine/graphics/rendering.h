@@ -1,0 +1,29 @@
+#pragma once
+#include "engine/graphics/spriteLibrary.h"
+#include "engine/graphics/camera.h"
+#include "game/gameplay/levels.h"
+
+struct Button;
+struct FontAtlas;
+
+enum class Alignment {
+    Right,
+    Centered
+};
+
+void RenderText( FontAtlas* atlas, const char* text, SDL_Renderer* renderer, Camera* camera, float x,
+                 float y, Alignment alignment );
+
+void RenderButton( Button* button, bool is_selected, SDL_Renderer* renderer );
+
+void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* renderer );
+
+void RenderTile( Sprite* tileset, int cell_id, LevelData* level, SDL_Renderer* renderer,
+                 const Camera* camera, float x, float y, float scale, float alpha );
+
+void RenderSprite_World( SpriteRenderInfo spriteInfo, SDL_Renderer* renderer, const Camera* camera,
+                         float x, float y, float scale = 1, float alpha = 1, bool flipped = false );
+
+void RenderSprite_OnTile( SpriteRenderInfo spriteInfo, LevelData* lvl, SDL_Renderer* renderer,
+                          const Camera* camera, float x, float y, float scale = 1, float alpha = 1,
+                          bool flipped = false );
