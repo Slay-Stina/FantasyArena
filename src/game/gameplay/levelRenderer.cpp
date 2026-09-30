@@ -35,7 +35,7 @@ void RenderLevel( GameData* gameData, SDL_Renderer* renderer ) {
 }
 
 bool IsEntityBelowOtherEntity( Entity* a, Entity* b ) {
-    return a->y < b->y;
+    return a->position.y < b->position.y;
 }
 
 void RenderEntities( GameData* data, SDL_Renderer* renderer ) {
@@ -54,14 +54,11 @@ void RenderEntities( GameData* data, SDL_Renderer* renderer ) {
             continue;
         }
         SpriteRenderInfo sprite = data->sprites.GetSprite_FromEntityState(entity, data->ticks_total);
-        float x_animated = std::lerp(entity->x_prev, entity->x, entity->progress_01);
-        float y_animated = std::lerp(entity->y_prev, entity->y, entity->progress_01);
-        float ground_y = y_animated;
-        if (entity->action == Actions::MOVING && HasBehaviour(entity, JUMPS) && !HasBehaviour(entity, IS_PUSHING)) {
-            y_animated -= 0.5 * sinf(entity->progress_01 * M_PI);
-        }
+        float world_x = entity->position.x;
+        float world_y = entity->position.y;
+        camera::GridToWorld(&world_x, &world_y, lvl, data->camera.camera_z);
         Sprite* dropshadow = data->sprites.GetSprite(SPRITE_ID::Dropshadow);
-        RenderSprite_OnTile(dropshadow, lvl, renderer, &data->camera, x_animated, ground_y, 1, 0.4, false);
-        RenderSprite_OnTile(sprite, lvl, renderer, &data->camera, x_animated, y_animated, 1, 1, sprite.flipped);
+        RenderSprite_World(dropshadow, renderer, &data->camera, world_x, world_y, 1, 0.4, false);
+        RenderSprite_World(sprite, renderer, &data->camera, world_x, world_y, 1, 1, sprite.flipped);
     }
 }

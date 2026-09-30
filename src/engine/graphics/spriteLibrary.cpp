@@ -91,7 +91,7 @@ SpriteRenderInfo SpriteLibrary::GetSprite( ENTITY_ID id ) const {
 
 SpriteRenderInfo SpriteLibrary::GetSprite_FromEntityState( const Entity* entity, const uint64_t* ticks_total ) const {
     const EntitySprites& visuals = ENTITY_SPRITES[(int) entity->id];
-    const bool moving = entity->action == Actions::MOVING && !HasBehaviour(entity, IS_PETRIFIED);
+    const bool moving = entity->action == Actions::MOVING;
     Sprite* sprite = GetSprite(moving ? visuals.run : visuals.idle);
     const int count = GetSpriteCount(sprite);
     constexpr int ANIMATION_FPS = 8;

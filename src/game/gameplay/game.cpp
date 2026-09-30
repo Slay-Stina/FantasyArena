@@ -1,8 +1,9 @@
 #include "game/gameplay/game.h"
 
+#include <cmath>
+
 #include <SDL3/SDL_scancode.h>
 
-#include "game/gameplay/command.h"
 #include "engine/core/common.h"
 #include "game/gameplay/levelRenderer.h"
 #include "game/gameplay/levels.h"
@@ -14,97 +15,68 @@ namespace {
     constexpr int LEVEL_COUNT = (int) (sizeof(LEVEL_PATHS) / sizeof(LEVEL_PATHS[0]));
     static_assert(LEVEL_COUNT <= MAX_LEVELS);
 
-    bool TryMove( Entity* mover, LevelData* level, CommandBuffer* cmd_buffer, int xDir, int yDir, int strength ) {
-        if (strength < 0) {
-            return false;
-        }
-        if (HasBehaviour(mover, CAN_MOVE) == false) {
-            return false;
-        }
-        int test_x = mover->x + xDir;
-        int test_y = mover->y + yDir;
-        Entity* stepInto_entity = GetEntity(level, test_x, test_y);
-
-        if (stepInto_entity == nullptr) {
-            if (IsWalkable(test_x, test_y, level)) {
-                MoveCommand mv(mover, xDir, yDir);
-                Push(cmd_buffer, mv, level);
-                return true;
-            }
-            return false;
-        }
-        if (HasBehaviour(stepInto_entity, CAN_MOVE) && !HasBehaviour(stepInto_entity, UNPUSHABLE)) {
-            if (TryMove(stepInto_entity, level, cmd_buffer, xDir, yDir, --strength)) {
-                MoveCommand mv(mover, xDir, yDir);
-                AddBehaviour(mover, IS_PUSHING);
-                Push(cmd_buffer, mv, level);
-                return true;
+    bool IsBlocked( LevelData* level, float x, float y ) {
+        const float half = 0.5f;
+        int x0 = (int) floorf(x - half);
+        int x1 = (int) floorf(x + half - 0.0001f);
+        int y0 = (int) floorf(y - half);
+        int y1 = (int) floorf(y + half - 0.0001f);
+        for (int cy = y0; cy <= y1; cy++) {
+            for (int cx = x0; cx <= x1; cx++) {
+                if (cx < 0 || cy < 0 || cx >= level->w || cy >= level->h) {
+                    return true;
+                }
+                if (!IsWalkable(cx, cy, level)) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    void MoveWithCollision( Entity* entity, LevelData* level, float dx, float dy ) {
+        if (!IsBlocked(level, entity->position.x + dx, entity->position.y)) {
+            entity->position.x += dx;
+        }
+        if (!IsBlocked(level, entity->position.x, entity->position.y + dy)) {
+            entity->position.y += dy;
+        }
     }
 }
 
 void Game::Initialize( Gameplay* gameplay, Arena* arena_levels, Tileset* tilesetBuffer ) {
     assert(gameplay->initialized == false);
     gameplay->currentLevelIndex = 0;
-    gameplay->activePlayerIndex = 0;
+    gameplay->playerIndex = 0;
     for (int i = 0; i < LEVEL_COUNT; i++) {
         CreateLevel(arena_levels, &gameplay->levels[i], &tilesetBuffer[(int) TILESETS::Dungeon], LEVEL_PATHS[i]);
     }
     gameplay->initialized = true;
 }
 
-void Game::Update( Gameplay* gameplay, Input* input, Arena* arena_scratch, Arena* arena_commands, Arena* arena_entities,
+void Game::Update( Gameplay* gameplay, Input* input, Arena* arena_scratch, Arena* arena_entities,
                    float dt ) {
     if (KeyPressed(input, SDL_SCANCODE_R)) {
-        StartLevel(gameplay, arena_commands, arena_entities);
+        StartLevel(gameplay, arena_entities);
         return;
     }
     LevelData* level = GetCurrentLevel(gameplay);
     Entity* entityBuffer = level->entityBuffer;
 
-    // Check player count and put them in buffer
-    int player_count = 0;
+    // Check for player and set in gameplay
+    gameplay->player = nullptr;
     for (int i = 0; i < level->entityCount; i++) {
         if (entityBuffer[i].active == false) {
             continue;
         }
         if (HasBehaviour(&level->entityBuffer[i], IS_PLAYER)) {
-            player_count++;
+            gameplay->player = &entityBuffer[i];
         }
     }
-    int index = 0;
-    gameplay->activePlayerCount = player_count;
-    gameplay->activePlayerBuffer = ALLOC_ARRAY(arena_scratch, Entity *, player_count);
-    if (player_count == 0) {
+
+    Entity* player = gameplay->player;
+    if (player == nullptr) {
         return;
-    }
-    for (int i = 0; i < level->entityCount; i++) {
-        if (entityBuffer[i].active == false) {
-            continue;
-        }
-        if (HasBehaviour(&level->entityBuffer[i], IS_PLAYER)) {
-            gameplay->activePlayerBuffer[index++] = &level->entityBuffer[i];
-        }
-    }
-
-    //Check input to undo/redo
-    if (KeyPressed(input, SDL_SCANCODE_Z) || KeyHeld_ForTime(input, SDL_SCANCODE_Z, UNDO_REPEAT_TIME)) {
-        ResetKeyHeldTime(input, SDL_SCANCODE_Z);
-        if (KeyHeld(input, SDL_SCANCODE_LSHIFT)) {
-            Redo(gameplay->commandBuffer, GetCurrentLevel(gameplay));
-        } else {
-            Undo(gameplay->commandBuffer, GetCurrentLevel(gameplay));
-        }
-    }
-    bool are_entities_acting = false;
-
-    for (int i = 0; i < level->entityCount; i++) {
-        if (IsActing(&entityBuffer[i])) {
-            are_entities_acting = true;
-            break;
-        }
     }
 
     for (int i = 0; i < level->goalCount; i++) {
@@ -133,7 +105,7 @@ void Game::Update( Gameplay* gameplay, Input* input, Arena* arena_scratch, Arena
             gameplay->level_complete_timer += dt;
             if (gameplay->level_complete_timer >= LEVEL_COMPLETE_DELAY) {
                 gameplay->currentLevelIndex++;
-                StartLevel(gameplay, arena_commands, arena_entities);
+                StartLevel(gameplay, arena_entities);
                 return;
             }
         } else {
@@ -141,91 +113,28 @@ void Game::Update( Gameplay* gameplay, Input* input, Arena* arena_scratch, Arena
         }
     }
 
-    if (!are_entities_acting && KeyPressed(input, SDL_SCANCODE_X) && player_count > 0) {
-        SwapActiveEntityCommand swap(&gameplay->activePlayerIndex, player_count);
-        Push(gameplay->commandBuffer, swap, GetCurrentLevel(gameplay));
-        gameplay->commandBuffer->timestamp += 1;
-    }
+    float dx = 0;
+    float dy = 0;
+    if (KeyHeld(input, SDL_SCANCODE_RIGHT)) dx += 1;
+    if (KeyHeld(input, SDL_SCANCODE_LEFT)) dx -= 1;
+    if (KeyHeld(input, SDL_SCANCODE_UP)) dy -= 1;
+    if (KeyHeld(input, SDL_SCANCODE_DOWN)) dy += 1;
 
-    Entity* entity = GetActiveEntity(gameplay);
-    if (!HasBehaviour(entity, (Behaviour)(RESPOND_TO_INPUT | CAN_MOVE))) {
-        return;
-    }
-    if (HasBehaviour(entity, IS_PETRIFIED)) {
-        return;
-    }
-
-    //Check input for movement
-    if (KeyPressed(input, SDL_SCANCODE_RIGHT) || KeyHeld_ForTime(input, SDL_SCANCODE_RIGHT,
-                                                                 1 / MOVE_SPEED * 1.15)) {
-        ResetKeyHeldTime(input, SDL_SCANCODE_RIGHT);
-        gameplay->input_buffer[gameplay->input_buffer_write_count++ % gameplay->input_buffer_capacity] = {1, 0};
-    } else if (KeyPressed(input, SDL_SCANCODE_LEFT) || KeyHeld_ForTime(
-                   input, SDL_SCANCODE_LEFT, 1 / MOVE_SPEED * 1.15)) {
-        ResetKeyHeldTime(input, SDL_SCANCODE_LEFT);
-        gameplay->input_buffer[gameplay->input_buffer_write_count++ % gameplay->input_buffer_capacity] = {-1, 0};
-    } else if (KeyPressed(input, SDL_SCANCODE_UP) || KeyHeld_ForTime(
-                   input, SDL_SCANCODE_UP, 1 / MOVE_SPEED * 1.15)) {
-        ResetKeyHeldTime(input, SDL_SCANCODE_UP);
-        gameplay->input_buffer[gameplay->input_buffer_write_count++ % gameplay->input_buffer_capacity] = {0, -1};
-    } else if (KeyPressed(input, SDL_SCANCODE_DOWN) || KeyHeld_ForTime(
-                   input, SDL_SCANCODE_DOWN, 1 / MOVE_SPEED * 1.15)) {
-        ResetKeyHeldTime(input, SDL_SCANCODE_DOWN);
-        gameplay->input_buffer[gameplay->input_buffer_write_count++ % gameplay->input_buffer_capacity] = {0, 1};
-    }
-
-    // Is there an entity moving?
-    for (int i = 0; i < level->entityCount; i++) {
-        Entity* entity = &entityBuffer[i];
-        if (!entity->active)
-            continue;
-        switch (entity->action) {
-            case Actions::NONE:
-                continue;
-            case Actions::MOVING:
-                entity->progress_01 += MOVE_SPEED * dt;
-                break;
-            case Actions::ROTATING:
-                entity->progress_01 += 8 * dt;
-                break;
+    if (dx != 0 || dy != 0) {
+        if (dx != 0 && dy != 0) {
+            const float diagonal = 0.70710678f;
+            dx *= diagonal;
+            dy *= diagonal;
         }
-    }
-    for (int i = 0; i < level->entityCount; i++) {
-        Entity* entity = &entityBuffer[i];
-        if (entity->progress_01 >= 1) {
-            entity->x_prev = entity->x;
-            entity->y_prev = entity->y;
-            entity->facing_previous = entity->facing_current;
-            entity->action = Actions::NONE;
-            entity->progress_01 = 0;
-            if (HasBehaviour(entity, IS_PUSHING)) {
-                RemoveBehaviour(entity, IS_PUSHING);
-            }
+        player->action = Actions::MOVING;
+        if (fabsf(dx) >= fabsf(dy)) {
+            player->facing_current = dx > 0 ? Direction::RIGHT : Direction::LEFT;
+        } else {
+            player->facing_current = dy > 0 ? Direction::DOWN : Direction::UP;
         }
-    }
-
-    gameplay->commandBuffer->timestamp += 1;
-    if (are_entities_acting) {
-        return;
-    }
-    if (gameplay->input_buffer_read_count == gameplay->input_buffer_write_count) {
-        return;
-    }
-
-    int xDir = gameplay->input_buffer[gameplay->input_buffer_read_count % gameplay->input_buffer_capacity].x;
-    int yDir = gameplay->input_buffer[gameplay->input_buffer_read_count % gameplay->input_buffer_capacity].y;
-    Direction new_facing = DirectionFromXY(xDir, yDir);
-    if (new_facing != entity->facing_current) {
-        RotateCommand rotate(entity, entity->facing_current, new_facing);
-        Push(gameplay->commandBuffer, rotate, level);
-        return;
-    }
-    if (!IsActing(entity)) {
-        bool moved = TryMove(entity, level, gameplay->commandBuffer, xDir, yDir, entity->strength);
-        if (moved) {
-            PlaySFX(SFX_ID::JUMP);
-        }
-        gameplay->input_buffer_read_count++;
+        MoveWithCollision(player, level, dx * MOVE_SPEED * dt, dy * MOVE_SPEED * dt);
+    } else {
+        player->action = Actions::NONE;
     }
 }
 
@@ -234,10 +143,8 @@ void Game::Draw( GameData* data, SDL_Renderer* renderer ) {
     RenderEntities(data, renderer);
 }
 
-void Game::StartLevel( Gameplay* gameplay, Arena* arena_commands, Arena* arena_entities ) {
-    ResetCommandBuffer(gameplay->commandBuffer);
-    Reset(arena_commands);
+void Game::StartLevel( Gameplay* gameplay, Arena* arena_entities ) {
     CreateEntities(&gameplay->levels[gameplay->currentLevelIndex], arena_entities);
-    gameplay->activePlayerIndex = 0;
+    gameplay->playerIndex = 0;
     gameplay->level_complete_timer = 0;
 }

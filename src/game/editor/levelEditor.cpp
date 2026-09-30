@@ -3,7 +3,6 @@
 
 #include <imgui.h>
 
-#include "game/gameplay/command.h"
 #include "engine/graphics/rendering.h"
 
 namespace {
@@ -49,12 +48,11 @@ namespace EDITOR {
         ImGui::End();
     }
 
-    void PlaceObject( const int x, const int y, Editor* editor, LevelData* level, CommandBuffer* buffer ) {
+    void PlaceObject( const int x, const int y, Editor* editor, LevelData* level ) {
         if (!editor->has_selection) {
             return;
         }
-        AddCommand add(x, y, editor->object_to_place_id);
-        Push(buffer, add, level);
+        AddEntity(editor->object_to_place_id, x, y, level);
     }
 
     void DrawPreview( Editor* editor, Input* input, SDL_Renderer* renderer, LevelData* level, Camera* camera,
@@ -69,7 +67,7 @@ namespace EDITOR {
         RenderSprite_OnTile(preview, level, renderer, camera, x, y, 1, 0.5);
     }
 
-    void Update( Editor* editor, Input* input, LevelData* level, CommandBuffer* buffer, Camera* camera ) {
+    void Update( Editor* editor, Input* input, LevelData* level, Camera* camera ) {
         float zoom = camera->camera_z;
         if (ImGui::GetIO().WantCaptureMouse) {
             return;
@@ -79,7 +77,7 @@ namespace EDITOR {
                 int x;
                 int y;
                 camera::WorldToGrid(input->mouse_x, input->mouse_y, &x, &y, level, zoom);
-                PlaceObject(x, y, editor, level, buffer);
+                PlaceObject(x, y, editor, level);
             }
         } else if (MousePressed(input, MouseButton::RIGHT)) {
             if (camera::GetIsPointInsideGrid(input->mouse_x, input->mouse_y, level, zoom)) {
@@ -90,8 +88,7 @@ namespace EDITOR {
                 if (entity == nullptr) {
                     return;
                 }
-                RemoveCommand remove(entity);
-                Push(buffer, remove, level);
+                RemoveEntity(x, y, level);
             }
         }
     }

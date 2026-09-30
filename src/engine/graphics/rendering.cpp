@@ -111,8 +111,8 @@ void RenderSprite_OnTile( SpriteRenderInfo spriteInfo, LevelData* lvl, SDL_Rende
                           const Camera* camera, float x, float y, float scale, float alpha, bool flipped ) {
     float zoom = camera->camera_z;
     camera::GridToWorld(&x, &y, lvl, zoom);
-    x += TILE_SIZE_PX_SCALED * zoom / 2.0f;
-    y += TILE_SIZE_PX_SCALED * zoom / 2.0f;
+    // x += TILE_SIZE_PX_SCALED * zoom / 2.0f;
+    // y += TILE_SIZE_PX_SCALED * zoom / 2.0f;
     RenderSprite_World(spriteInfo, renderer, camera, x, y, scale, alpha, flipped);
 }
 

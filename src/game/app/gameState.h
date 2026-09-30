@@ -3,7 +3,6 @@
 #include "engine/graphics/spriteLibrary.h"
 #include "engine/input/input.h"
 #include "engine/graphics/camera.h"
-#include "game/gameplay/command.h"
 #include <imgui.h>
 
 #include "engine/audio/audioSystem.h"
@@ -72,7 +71,6 @@ struct GameData {
     Arena* arena_levels;
     Arena* arena_entities;
     Arena* arena_images;
-    Arena* arena_commands;
     Arena* arena_input;
     Arena* arena_scratch;
     Camera camera;

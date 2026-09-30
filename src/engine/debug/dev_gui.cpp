@@ -1,6 +1,5 @@
 #include "engine/debug/dev_gui.h"
 #include "game/app/gameState.h"
-#include "game/gameplay/command.h"
 #include "engine/core/common.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -31,18 +30,6 @@ void Draw_Imgui_Arena_Usage( Arena* arena, const std::string& name_of_arena ) {
     float fraction = (float) arena->used / (float) arena->size;
     string barText = name_of_arena + " " + FormatBytes(arena->used) + " / " + FormatBytes(arena->size);
     ImGui::ProgressBar(fraction, ImVec2(-1, 0), barText.c_str());
-}
-
-void Draw_History( CommandBuffer* buffer, LevelData* level ) {
-    int sliderPos = buffer->index;
-    if (ImGui::SliderInt("history", &sliderPos, 0, buffer->head)) {
-        while (buffer->index > sliderPos) {
-            Undo(buffer, level);
-        }
-        while (buffer->index < sliderPos) {
-            Redo(buffer, level);
-        }
-    }
 }
 
 void DrawFPS( GameData* data ) {
@@ -101,7 +88,6 @@ void DEV::Draw( GameData* data, SDL_Renderer* renderer ) {
                 ImGui::SliderFloat("camera-x", &data->camera.camera_x, -1000, 1000);
                 ImGui::SliderFloat("camera-y", &data->camera.camera_y, -1000, 1000);
                 ImGui::SliderFloat("camera-z", &data->camera.camera_z, 0.1, 3);
-                Draw_History(gameplay->commandBuffer, GetCurrentLevel(gameplay));
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("arenas")) {
@@ -109,7 +95,6 @@ void DEV::Draw( GameData* data, SDL_Renderer* renderer ) {
                 Draw_Imgui_Arena_Usage(data->arena_main, "total");
                 Draw_Imgui_Arena_Usage(data->arena_images, "images");
                 Draw_Imgui_Arena_Usage(data->arena_levels, "levels");
-                Draw_Imgui_Arena_Usage(data->arena_commands, "commands");
                 Draw_Imgui_Arena_Usage(data->arena_entities, "entities");
                 Draw_Imgui_Arena_Usage(data->arena_input, "input");
                 Draw_Imgui_Arena_Usage(data->arena_scratch, "scratch");

@@ -3,6 +3,7 @@
 #include "engine/memory/arena.h"
 #include "game/gameplay/entity.h"
 
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <json/json.h>
@@ -26,8 +27,11 @@ bool IsWalkable( int x, int y, LevelData* level ) {
 
 Entity* GetEntity( LevelData* level, int x, int y ) {
     for (int i = 0; i < level->entityCount; i++) {
-        if (level->entityBuffer[i].active && level->entityBuffer[i].x == x && level->entityBuffer[i].y == y) {
-            return &level->entityBuffer[i];
+        Entity& entity = level->entityBuffer[i];
+        if (entity.active &&
+            (int) floorf(entity.position.x) == x &&
+            (int) floorf(entity.position.y) == y) {
+            return &entity;
         }
     }
     return nullptr;
@@ -145,10 +149,8 @@ void AddEntity( ENTITY_ID entity_id, int x, int y, LevelData* level ) {
             return;
         }
     }
-    entity->x = x;
-    entity->y = y;
-    entity->x_prev = x;
-    entity->y_prev = y;
+    entity->position.x = (float) x + 0.5f;
+    entity->position.y = (float) y + 0.5f;
     entity->id = entity_id;
     entity->active = true;
     entity->action = Actions::NONE;
@@ -164,23 +166,25 @@ void RemoveEntity( int x, int y, LevelData* level ) {
 }
 
 Entity* RaycastFirstEntity( int x_origin, int y_origin, Direction direction, LevelData* level, bool ignore_walls ) {
-    Position facingVector{};
+    Vec2 facingVector{};
     switch (direction) {
         case Direction::RIGHT:
-            facingVector = {1, 0};
+            facingVector = {1.0f, 0.0f};
             break;
         case Direction::LEFT:
-            facingVector = {-1, 0};
+            facingVector = {-1.0f, 0.0f};
             break;
         case Direction::UP:
-            facingVector = {0, -1};
+            facingVector = {0.0f, -1.0f};
             break;
         case Direction::DOWN:
-            facingVector = {0, 1};
+            facingVector = {0.0f, 1.0f};
             break;
     }
-    int x_search = x_origin + facingVector.x;
-    int y_search = y_origin + facingVector.y;
+    const int step_x = (int) facingVector.x;
+    const int step_y = (int) facingVector.y;
+    int x_search = x_origin + step_x;
+    int y_search = y_origin + step_y;
     while (x_search >= 0 && x_search < level->w && y_search >= 0 && y_search < level->h) {
         if (!IsWalkable(x_search, y_search, level) && !ignore_walls) {
             break;
@@ -189,8 +193,8 @@ Entity* RaycastFirstEntity( int x_origin, int y_origin, Direction direction, Lev
         if (entity_search != nullptr) {
             return entity_search;
         }
-        x_search += facingVector.x;
-        y_search += facingVector.y;
+        x_search += step_x;
+        y_search += step_y;
     }
     return nullptr;
 }

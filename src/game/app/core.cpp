@@ -39,7 +39,7 @@ void ChangeScene( GameData* data, SCENE_TYPES new_scene ) {
             data->transition.fade_time_duration = 0.5f;
             Gameplay* gameplay = &data->scenes.gameplay;
             assert(gameplay->initialized);
-            Game::StartLevel(gameplay, data->arena_commands, data->arena_entities);
+            Game::StartLevel(gameplay, data->arena_entities);
             break;
         }
         case SCENE_TYPES::CREDITS:
@@ -126,8 +126,7 @@ void Update( GameData* data, float dt ) {
         editorData->edit_level = !editorData->edit_level;
     }
     if (editorData->edit_level) {
-        EDITOR::Update(&editorData->editor, &data->input, GetCurrentLevel(gameplay), gameplay->commandBuffer,
-                       &data->camera);
+        EDITOR::Update(&editorData->editor, &data->input, GetCurrentLevel(gameplay), &data->camera);
     }
 
     // Dev
@@ -163,16 +162,16 @@ void Update( GameData* data, float dt ) {
             }
             break;
         case SCENE_TYPES::GAME: {
-            Game::Update(gameplay, &data->input, data->arena_scratch, data->arena_commands, data->arena_entities, dt);
-            if (gameplay->activePlayerCount > 0) {
-                Entity* player = GetActiveEntity(gameplay);
-                float player_x = std::lerp((float) player->x_prev, (float) player->x, player->progress_01);
-                float player_y = std::lerp((float) player->y_prev, (float) player->y, player->progress_01);
-                camera::GridToWorld(&player_x, &player_y, GetCurrentLevel(gameplay), data->camera.camera_z);
-                const float half_tile = TILE_SIZE_PX_SCALED * data->camera.camera_z / 2.0f;
-                data->camera.camera_x = player_x + half_tile - SCREEN_WIDTH / 2.0f;
-                data->camera.camera_y = player_y + half_tile - SCREEN_HEIGHT / 2.0f;
+            Game::Update(gameplay, &data->input, data->arena_scratch, data->arena_entities, dt);
+            Entity* player = gameplay->player;
+            if (player == nullptr) {
+                break;
             }
+            float player_x = player->position.x;
+            float player_y = player->position.y;
+            camera::GridToWorld(&player_x, &player_y, GetCurrentLevel(gameplay), data->camera.camera_z);
+            data->camera.camera_x = player_x - SCREEN_WIDTH / 2.0f;
+            data->camera.camera_y = player_y - SCREEN_HEIGHT / 2.0f;
             break;
         }
         case SCENE_TYPES::MAINMENU:

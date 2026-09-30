@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <filesystem>
 #include <string>
 #include <system_error>
@@ -208,17 +207,6 @@ int main() {
     gameData->arena_levels = CreateSubArena(arena_main, MEGABYTES(3));
     gameData->arena_entities = CreateSubArena(gameData->arena_levels, MEGABYTES(1));
     gameplay->levels = ALLOC_ARRAY(gameData->arena_levels, LevelData, MAX_LEVELS);
-
-    //Commands memory
-    gameData->arena_commands = CreateSubArena(gameData->arena_levels, MEGABYTES(1));
-    gameplay->commandBuffer = ALLOC(gameData->arena_commands, CommandBuffer);
-    gameplay->commandBuffer->capacity = 2000;
-    gameplay->commandBuffer->allCommands = ALLOC_ARRAY(gameData->arena_commands, AnyCommand,
-                                                       gameplay->commandBuffer->capacity);
-
-    //Input buffer memory
-    gameplay->input_buffer_capacity = 50;
-    gameplay->input_buffer = ALLOC_ARRAY(gameData->arena_levels, Position, gameplay->input_buffer_capacity);
 
     //Input management memory
     size_t INPUT_ARENA_SIZE = 0;
