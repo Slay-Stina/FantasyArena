@@ -11,6 +11,8 @@ enum class Alignment {
     Centered
 };
 
+void RenderNineSlice( Sprite* sprite, SDL_FRect rect, SDL_Renderer* renderer, uint8_t colorOverlay = 250 );
+
 void RenderText( FontAtlas* atlas, const char* text, SDL_Renderer* renderer, Camera* camera, float x,
                  float y, Alignment alignment );
 

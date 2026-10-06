@@ -4,53 +4,10 @@
 #include "engine/core/common.h"
 #include "engine/graphics/FontAtlas.h"
 
-void RenderText( FontAtlas* atlas, const char* text, SDL_Renderer* renderer, Camera* camera, const float x,
-                 const float y, Alignment mode ) {
-    assert(atlas->AtlasTexture != nullptr);
-    float draw_position_x = x;
-    float draw_position_y = y;
-    if (camera != nullptr) {
-        draw_position_x -= camera->camera_x;
-        draw_position_y -= camera->camera_y;
-    }
-    if (mode == Alignment::Centered) {
-        float totalWidth = 0;
-        for (int i = 0; text[i] != STOP_CHAR; i++) {
-            totalWidth += atlas->GetGlyph(text[i]).atlasPosition.w;
-        }
-        draw_position_x -= totalWidth / 2.0;
-    }
-    for (int i = 0; text[i] != STOP_CHAR; i++) {
-        Glyph glyph = atlas->GetGlyph(text[i]);
-        SDL_FRect renderRectangle = {draw_position_x, draw_position_y, glyph.atlasPosition.w, glyph.atlasPosition.h};
-        SDL_RenderTexture(renderer, atlas->AtlasTexture, &glyph.atlasPosition, &renderRectangle);
-        draw_position_x += glyph.atlasPosition.w;
-    }
-}
-
-void RenderButton( Button* button, bool is_selected, SDL_Renderer* renderer ) {
-    uint8_t colorOverlay = is_selected ? 255 : 230;
-    SDL_Texture* texture = button->sprite->texture;
-    SDL_FRect rect = button->rect;
-
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_PIXELART);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureColorMod(texture, colorOverlay, colorOverlay, colorOverlay);
-
-    SDL_RenderTexture(renderer, button->sprite->texture, nullptr, &button->rect);
-    if (!IsStringEmpty(button->text)) {
-        float glyph_height = button->font->GetGlyph('H').atlasPosition.h / 2.0;
-        RenderText(button->font, button->text, renderer, nullptr, rect.x + (rect.w / 2.0),
-                   rect.y + (rect.h / 2.0) - glyph_height, Alignment::Centered);
-    }
-}
-
-void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* renderer ) {
-    assert(button->sprite->sprite_count_x == 3);
-    assert(button->sprite->sprite_count_y == 3);
-    uint8_t colorOverlay = is_selected ? 255 : 230;
-    SDL_Texture* texture = button->sprite->texture;
-    SDL_FRect rect = button->rect;
+void RenderNineSlice( Sprite* sprite, SDL_FRect rect, SDL_Renderer* renderer, uint8_t colorOverlay ) {
+    assert(sprite->sprite_count_x == 3);
+    assert(sprite->sprite_count_y == 3);
+    SDL_Texture* texture = sprite->texture;
 
     float part_w = texture->w / 3.0;
     float part_h = texture->h / 3.0;
@@ -93,11 +50,61 @@ void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* rende
     SDL_RenderTexture(renderer, texture, &topRightsrc, &topRightdst);
     SDL_RenderTexture(renderer, texture, &bottomRightsrc, &bottomRightdst);
     SDL_RenderTexture(renderer, texture, &centersrc, &centerdst);
+}
 
+void RenderText( FontAtlas* atlas, const char* text, SDL_Renderer* renderer, Camera* camera, const float x,
+                 const float y, Alignment mode ) {
+    assert(atlas->AtlasTexture != nullptr);
+    float draw_position_x = x;
+    float draw_position_y = y;
+    if (camera != nullptr) {
+        draw_position_x -= camera->camera_x;
+        draw_position_y -= camera->camera_y;
+    }
+    if (mode == Alignment::Centered) {
+        float totalWidth = 0;
+        for (int i = 0; text[i] != STOP_CHAR; i++) {
+            totalWidth += atlas->GetGlyph(text[i]).atlasPosition.w;
+        }
+        draw_position_x -= totalWidth / 2.0;
+    }
+    for (int i = 0; text[i] != STOP_CHAR; i++) {
+        Glyph glyph = atlas->GetGlyph(text[i]);
+        SDL_FRect renderRectangle = {draw_position_x, draw_position_y, glyph.atlasPosition.w, glyph.atlasPosition.h};
+        SDL_RenderTexture(renderer, atlas->AtlasTexture, &glyph.atlasPosition, &renderRectangle);
+        draw_position_x += glyph.atlasPosition.w;
+    }
+}
+
+void RenderButton( Button* button, bool is_selected, SDL_Renderer* renderer ) {
+    uint8_t colorOverlay = is_selected ? 255 : 230;
+    Sprite* sprite = button->sprite;
+    SDL_Texture* texture = sprite->texture;
+    SDL_FRect* spriteSrc = sprite->frames;
+    SDL_FRect rect = button->rect;
+    if (button->type == ButtonType::CHARACTER) {
+        rect.y += 100;
+    }
+
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_PIXELART);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureColorMod(texture, colorOverlay, colorOverlay, colorOverlay);
+
+    RenderSprite_World(sprite, renderer, nullptr, button->rect.x, button->rect.y, 1.5);
     if (!IsStringEmpty(button->text)) {
         float glyph_height = button->font->GetGlyph('H').atlasPosition.h / 2.0;
         RenderText(button->font, button->text, renderer, nullptr, rect.x + (rect.w / 2.0),
                    rect.y + (rect.h / 2.0) - glyph_height, Alignment::Centered);
+    }
+}
+
+void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* renderer ) {
+    uint8_t colorOverlay = is_selected ? 255 : 230;
+    RenderNineSlice(button->sprite, button->rect, renderer, colorOverlay);
+    if (!IsStringEmpty(button->text)) {
+        float glyph_height = button->font->GetGlyph('H').atlasPosition.h / 2.0;
+        RenderText(button->font, button->text, renderer, nullptr, button->rect.x + (button->rect.w / 2.0),
+                   button->rect.y + (button->rect.h / 2.0) - glyph_height, Alignment::Centered);
     }
 }
 

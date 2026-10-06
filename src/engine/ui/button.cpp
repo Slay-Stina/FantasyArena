@@ -14,13 +14,16 @@ void PressButton( GameData* data, Button* button ) {
     assert(button->active);
     switch (button->type) {
         case ButtonType::START_GAME:
-            ChangeScene(data, SCENE_TYPES::GAME);
+            ChangeScene(data, SCENE_TYPES::CREATOR);
             break;
         case ButtonType::CREDITS:
             ChangeScene(data, SCENE_TYPES::CREDITS);
             break;
         case ButtonType::QUIT:
             data->running = false;
+            break;
+        case ButtonType::CHARACTER:
+            Creator::MakeCharacter(button->sprite);
             break;
         case ButtonType::NONE:
             assert(false);
@@ -48,7 +51,7 @@ bool IsHoveredOver( Button* button, float x, float y ) {
 }
 
 void SetupButton( Button* button, SpriteLibrary* sprites, ButtonType type, Alignment mode, SDL_FRect rect,
-                  FontAtlas* font, const char* text, bool dynamic ) {
+                  FontAtlas* font, const char* text, bool dynamic, SPRITE_ID id ) {
     assert(type != ButtonType::NONE);
     button->mode = mode;
     button->dynamic = dynamic;
@@ -76,8 +79,9 @@ void SetupButton( Button* button, SpriteLibrary* sprites, ButtonType type, Align
     switch (button->type) {
         case ButtonType::QUIT:
         case ButtonType::CREDITS:
+        case ButtonType::CHARACTER:
         case ButtonType::START_GAME:
-            button->sprite = sprites->GetSprite(SPRITE_ID::Button_Basic);
+            button->sprite = sprites->GetSprite(id);
             break;
         default:
             button->sprite = sprites->GetSprite(SPRITE_ID::Fallback);

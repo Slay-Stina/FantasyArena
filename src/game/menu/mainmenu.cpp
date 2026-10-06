@@ -15,16 +15,13 @@ void Menu::Initialize( MainMenu* mainmenu, SpriteLibrary* sprites, FontAtlas* fo
 
     SetupButton(&mainmenu->buttons[0], sprites, ButtonType::START_GAME,
                 Alignment::Centered,
-                {SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0 - 20},
-                font, "Start Game", true);
+                {SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0 - 20}, font, "Start Game", true);
 
     SetupButton(&mainmenu->buttons[1], sprites, ButtonType::CREDITS, Alignment::Centered,
-                {SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f + 80},
-                font, "Credits", true);
+                {SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f + 80}, font, "Credits", true);
 
     SetupButton(&mainmenu->buttons[2], sprites, ButtonType::QUIT, Alignment::Centered,
-                {SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f + 180},
-                font, "Quit Game", true);
+                {SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f + 180}, font, "Quit Game", true);
 
     mainmenu->activeButtonIndex = 0;
     mainmenu->background_horizon = sprites->GetSprite(SPRITE_ID::Menu_Horizon);

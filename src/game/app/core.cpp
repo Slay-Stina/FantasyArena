@@ -8,6 +8,7 @@
 #include "game/gameplay/levels.h"
 #include "engine/graphics/rendering.h"
 #include "game/app/credits.h"
+#include "game/characterCreator/charCreator.h"
 
 using namespace std;
 
@@ -31,10 +32,14 @@ void ChangeScene( GameData* data, SCENE_TYPES new_scene ) {
     data->transition.fade_time_elapsed = 0;
     switch (data->scene_current) {
         case SCENE_TYPES::TITLESCREEN:
-            data->transition.fade_time_duration = 1;
             break;
         case SCENE_TYPES::MAINMENU:
+            data->transition.fade_time_duration = 1;
             break;
+        case SCENE_TYPES::CREATOR: {
+            data->transition.fade_time_duration = 0.5f;
+            break;
+        }
         case SCENE_TYPES::GAME: {
             data->transition.fade_time_duration = 0.5f;
             Gameplay* gameplay = &data->scenes.gameplay;
@@ -65,6 +70,12 @@ void DrawScene( GameData* data, SCENE_TYPES scene, SDL_Renderer* renderer ) {
             RenderText(&data->font, "Fantasy Arena", renderer, &data->camera, SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 4.0,
                        Alignment::Centered);
             break;
+        case SCENE_TYPES::CREATOR:
+            RenderText(&data->font, "Choose your character", renderer, &data->camera, SCREEN_WIDTH / 2.0,
+                       SCREEN_HEIGHT / 4.0,
+                       Alignment::Centered);
+            Creator::Draw(&data->scenes.characterCreator, renderer, &data->sprites, &data->input);
+            break;
         case SCENE_TYPES::GAME:
             Game::Draw(data, renderer);
             break;
@@ -91,6 +102,7 @@ void Initialize( GameData* data, SDL_Window* window, SDL_Renderer* renderer ) {
     data->imGui_context = ImGui::GetCurrentContext();
     SDL_Texture* blackfade = data->sprites.GetSprite(SPRITE_ID::black_1x1)->texture;
     SDL_SetTextureBlendMode(blackfade, SDL_BLENDMODE_BLEND);
+    Creator::Initialize(&data->scenes.characterCreator, &data->sprites, &data->font, data->arena_main);
     Game::Initialize(&data->scenes.gameplay, data->arena_levels, data->tilesetBuffer);
     Menu::Initialize(&data->scenes.mainMenu, &data->sprites, &data->font, data->arena_main);
     CreditsScreen::Initialize(&data->scenes.credits, renderer, "assets/audio/CREDITS.md");
@@ -174,6 +186,9 @@ void Update( GameData* data, float dt ) {
             data->camera.camera_y = player_y - SCREEN_HEIGHT / 2.0f;
             break;
         }
+        case SCENE_TYPES::CREATOR:
+            Creator::Update(data);
+            break;
         case SCENE_TYPES::MAINMENU:
             Menu::Update(data);
             break;

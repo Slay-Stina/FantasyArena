@@ -11,6 +11,7 @@
 #include "game/editor/levelEditor.h"
 #include "game/menu/mainmenu.h"
 #include "game/app/credits.h"
+#include "game/characterCreator/charCreator.h"
 
 struct TitleScreen {
 };
@@ -42,6 +43,7 @@ struct Scenes {
     MainMenu mainMenu;
     TitleScreen titlescreen;
     Credits credits;
+    CharacterCreator characterCreator;
 };
 
 enum class SCENE_TYPES : uint8_t {
@@ -49,6 +51,7 @@ enum class SCENE_TYPES : uint8_t {
     TITLESCREEN,
     MAINMENU,
     GAME,
+    CREATOR,
     CREDITS,
 };
 
