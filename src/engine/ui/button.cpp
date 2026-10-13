@@ -23,6 +23,7 @@ void PressButton( GameData* data, Button* button ) {
             data->running = false;
             break;
         case ButtonType::CHARACTER:
+            printf("\n %s", button->text);
             Creator::MakeCharacter(button->sprite);
             break;
         case ButtonType::NONE:
@@ -68,14 +69,6 @@ void SetupButton( Button* button, SpriteLibrary* sprites, ButtonType type, Align
         button->text = text;
     }
 
-    if (button->dynamic) {
-        FitButtonToText(button, 25);
-    }
-    if (button->mode == Alignment::Centered) {
-        button->rect.x -= button->rect.w / 2;
-        button->rect.y -= button->rect.h / 2;
-    }
-    button->active = true;
     switch (button->type) {
         case ButtonType::QUIT:
         case ButtonType::CREDITS:
@@ -87,6 +80,22 @@ void SetupButton( Button* button, SpriteLibrary* sprites, ButtonType type, Align
             button->sprite = sprites->GetSprite(SPRITE_ID::Fallback);
             break;
     }
+
+    if (button->dynamic) {
+        FitButtonToText(button, 25);
+    } else if (button->type == ButtonType::CHARACTER) {
+        SDL_FRect frame = {0, 0, (float) button->sprite->width, (float) button->sprite->height};
+        if (button->sprite->frames != nullptr && button->sprite->frame_count > 0) {
+            frame = button->sprite->frames[0];
+        }
+        button->rect.w = frame.w * CHARACTER_SPRITE_SCALE;
+        button->rect.h = frame.h * CHARACTER_SPRITE_SCALE;
+    }
+    if (button->mode == Alignment::Centered) {
+        button->rect.x -= button->rect.w / 2;
+        button->rect.y -= button->rect.h / 2;
+    }
+    button->active = true;
 }
 
 void FitButtonToText( Button* button, float padding ) {

@@ -29,6 +29,8 @@ const int MOUSE_BUTTON_COUNT = 3;
 
 constexpr int MAX_LEVELS = 5;
 
+constexpr float CHARACTER_SPRITE_SCALE = 6.0f;
+
 static const char STOP_CHAR = '\0';
 
 inline bool IsStringEmpty( const char* str ) {

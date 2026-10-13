@@ -1,6 +1,7 @@
 #include "engine/debug/dev_gui.h"
 #include "game/app/gameState.h"
 #include "engine/core/common.h"
+#include "engine/graphics/rendering.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -88,6 +89,7 @@ void DEV::Draw( GameData* data, SDL_Renderer* renderer ) {
                 ImGui::SliderFloat("camera-x", &data->camera.camera_x, -1000, 1000);
                 ImGui::SliderFloat("camera-y", &data->camera.camera_y, -1000, 1000);
                 ImGui::SliderFloat("camera-z", &data->camera.camera_z, 0.1, 3);
+                ImGui::Checkbox("debug rects (F3)", &g_debugDrawRects);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("arenas")) {

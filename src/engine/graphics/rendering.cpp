@@ -77,25 +77,57 @@ void RenderText( FontAtlas* atlas, const char* text, SDL_Renderer* renderer, Cam
 }
 
 void RenderButton( Button* button, bool is_selected, SDL_Renderer* renderer ) {
-    uint8_t colorOverlay = is_selected ? 255 : 230;
     Sprite* sprite = button->sprite;
     SDL_Texture* texture = sprite->texture;
-    SDL_FRect* spriteSrc = sprite->frames;
-    SDL_FRect rect = button->rect;
-    if (button->type == ButtonType::CHARACTER) {
-        rect.y += 100;
+
+    SDL_FRect src;
+    if (sprite->frames != nullptr && sprite->frame_count > 0) {
+        src = sprite->frames[0];
+    } else if (GetSpriteCount(sprite) > 1) {
+        float part_w = (float) sprite->width / sprite->sprite_count_x;
+        float part_h = (float) sprite->height / sprite->sprite_count_y;
+        src = {0, 0, part_w, part_h};
+    } else {
+        src = {0, 0, (float) sprite->width, (float) sprite->height};
     }
 
+    Uint8 tint = is_selected ? 255 : 120;
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_PIXELART);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureColorMod(texture, colorOverlay, colorOverlay, colorOverlay);
+    SDL_SetTextureColorMod(texture, tint, tint, tint);
+    SDL_RenderTexture(renderer, texture, &src, &button->rect);
 
-    RenderSprite_World(sprite, renderer, nullptr, button->rect.x, button->rect.y, 1.5);
     if (!IsStringEmpty(button->text)) {
-        float glyph_height = button->font->GetGlyph('H').atlasPosition.h / 2.0;
-        RenderText(button->font, button->text, renderer, nullptr, rect.x + (rect.w / 2.0),
-                   rect.y + (rect.h / 2.0) - glyph_height, Alignment::Centered);
+        if (button->type == ButtonType::CHARACTER) {
+            RenderText(button->font, button->text, renderer, nullptr,
+                       button->rect.x + button->rect.w / 2.0f, button->rect.y + button->rect.h + 8.0f,
+                       Alignment::Centered);
+        } else {
+            float glyph_height = button->font->GetGlyph('H').atlasPosition.h / 2.0f;
+            RenderText(button->font, button->text, renderer, nullptr,
+                       button->rect.x + button->rect.w / 2.0f,
+                       button->rect.y + button->rect.h / 2.0f - glyph_height, Alignment::Centered);
+        }
     }
+
+    if (is_selected) {
+        SDL_FRect highlight = {button->rect.x - 4.0f, button->rect.y - 4.0f, button->rect.w + 8.0f,
+                               button->rect.h + 8.0f};
+        SDL_SetRenderDrawColor(renderer, 255, 220, 90, 255);
+        SDL_RenderRect(renderer, &highlight);
+    }
+
+    DrawDebugRect(renderer, button->rect);
+}
+
+bool g_debugDrawRects = false;
+
+void DrawDebugRect( SDL_Renderer* renderer, const SDL_FRect& rect ) {
+    if (!g_debugDrawRects) {
+        return;
+    }
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    SDL_RenderRect(renderer, &rect);
 }
 
 void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* renderer ) {
@@ -106,6 +138,7 @@ void RenderButton_Dynamic( Button* button, bool is_selected, SDL_Renderer* rende
         RenderText(button->font, button->text, renderer, nullptr, button->rect.x + (button->rect.w / 2.0),
                    button->rect.y + (button->rect.h / 2.0) - glyph_height, Alignment::Centered);
     }
+    DrawDebugRect(renderer, button->rect);
 }
 
 void RenderTile( Sprite* tileset, int cell_id, LevelData* level, SDL_Renderer* renderer,
@@ -121,6 +154,24 @@ void RenderSprite_OnTile( SpriteRenderInfo spriteInfo, LevelData* lvl, SDL_Rende
     // x += TILE_SIZE_PX_SCALED * zoom / 2.0f;
     // y += TILE_SIZE_PX_SCALED * zoom / 2.0f;
     RenderSprite_World(spriteInfo, renderer, camera, x, y, scale, alpha, flipped);
+}
+
+SDL_FRect SetRenderSize( SDL_FRect tilesetRect, Sprite* sprite, const Camera* camera,
+                         float scale, float x, float y ) {
+    SDL_FRect rect;
+    rect.x = x;
+    rect.y = y;
+    float zoom = (camera != nullptr) ? camera->camera_z : 1.0f;
+    float final_scale = UPSCALE_FACTOR * scale * zoom;
+    rect.h = tilesetRect.h * final_scale;
+    rect.w = tilesetRect.w * final_scale;
+    rect.x -= sprite->pivot_x * final_scale;
+    rect.y -= sprite->pivot_y * final_scale;
+    if (camera != nullptr) {
+        rect.x -= camera->camera_x;
+        rect.y -= camera->camera_y;
+    }
+    return rect;
 }
 
 void RenderSprite_World( SpriteRenderInfo spriteRenderInfo, SDL_Renderer* renderer, const Camera* camera,
@@ -145,19 +196,7 @@ void RenderSprite_World( SpriteRenderInfo spriteRenderInfo, SDL_Renderer* render
         tilesetRect.y = 0;
     }
 
-    SDL_FRect rect;
-    rect.x = x;
-    rect.y = y;
-    float zoom = (camera != nullptr) ? camera->camera_z : 1.0f;
-    float final_scale = UPSCALE_FACTOR * scale * zoom;
-    rect.h = tilesetRect.h * final_scale;
-    rect.w = tilesetRect.w * final_scale;
-    rect.x -= sprite->pivot_x * final_scale;
-    rect.y -= sprite->pivot_y * final_scale;
-    if (camera != nullptr) {
-        rect.x -= camera->camera_x;
-        rect.y -= camera->camera_y;
-    }
+    SDL_FRect rect = SetRenderSize(tilesetRect, sprite, camera, scale, x, y);
 
     SDL_SetTextureScaleMode(sprite->texture, SDL_SCALEMODE_PIXELART);
     SDL_SetTextureAlphaModFloat(sprite->texture, alpha);

@@ -145,6 +145,9 @@ void Update( GameData* data, float dt ) {
     if (KeyPressed(&data->input, SDL_SCANCODE_F1)) {
         editorData->show_dev = !editorData->show_dev;
     }
+    if (KeyPressed(&data->input, SDL_SCANCODE_F3)) {
+        g_debugDrawRects = !g_debugDrawRects;
+    }
 
     // Scene Transition
     if (transition->state != Transition::Inactive) {

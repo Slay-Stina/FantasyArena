@@ -49,13 +49,13 @@ typedef void ( *Function_Draw )( GameData* data, SDL_Renderer* renderer );
 typedef void ( *Function_OnQuit )( SDL_Renderer* renderer );
 
 struct DLL_INFO {
-    LibraryHandle handle;
-    std::time_t Timestamp;
-    Function_Initialize Initialize;
-    Function_HandleEvents HandleEvents;
-    Function_Update Update;
-    Function_Draw Draw;
-    Function_OnQuit OnQuit;
+    LibraryHandle handle = nullptr;
+    long long Timestamp = 0;
+    Function_Initialize Initialize = nullptr;
+    Function_HandleEvents HandleEvents = nullptr;
+    Function_Update Update = nullptr;
+    Function_Draw Draw = nullptr;
+    Function_OnQuit OnQuit = nullptr;
 };
 
 std::string GameLibraryName() {
@@ -86,7 +86,7 @@ void CloseLibrary( LibraryHandle handle ) {
 #endif
 }
 
-std::time_t GetTimestamp() {
+long long GetTimestamp() {
     std::error_code error;
     fs::path path = GameLibraryName();
     if (!fs::exists(path, error)) {
@@ -96,7 +96,7 @@ std::time_t GetTimestamp() {
     if (error) {
         return 0;
     }
-    return std::chrono::duration_cast<std::chrono::seconds>(write_time.time_since_epoch()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(write_time.time_since_epoch()).count();
 }
 
 bool CopyFile( const std::string& from, const std::string& to ) {
@@ -105,51 +105,67 @@ bool CopyFile( const std::string& from, const std::string& to ) {
     return !error;
 }
 
-bool LoadDLL( DLL_INFO* info, int depth = 0 ) {
-    if (depth > 20) {
-        SDL_Log("failed to write temp library.");
-        return false;
-    }
-
-    // Unikt temp-namn varje gång så vi aldrig skriver över en laddad fil
+bool TryLoadDLL( DLL_INFO* info ) {
     char temp_name[256];
     snprintf(temp_name, sizeof(temp_name), "./%sFantasyArena_game_temp_%d%s", LIB_PREFIX, load_counter++,
              LIB_EXTENSION);
 
-    bool success = CopyFile(GameLibraryName(), temp_name);
-    if (!success) {
-        SDL_Delay(50);
-        return LoadDLL(info, depth + 1);
-    }
-
-    info->handle = OpenLibrary(temp_name);
-
-    if (!info->handle) {
-        SDL_Log("could not load library: %s", temp_name);
+    if (!CopyFile(GameLibraryName(), temp_name)) {
         return false;
     }
 
-    info->Initialize = (Function_Initialize) GetSymbol(info->handle, "Initialize");
-    info->HandleEvents = (Function_HandleEvents) GetSymbol(info->handle, "HandleEvents");
-    info->Update = (Function_Update) GetSymbol(info->handle, "Update");
-    info->Draw = (Function_Draw) GetSymbol(info->handle, "Draw");
-    info->OnQuit = (Function_OnQuit) GetSymbol(info->handle, "OnQuit");
+    LibraryHandle handle = OpenLibrary(temp_name);
+    if (handle == nullptr) {
+        return false;
+    }
+
+    Function_Initialize initialize = (Function_Initialize) GetSymbol(handle, "Initialize");
+    Function_HandleEvents handleEvents = (Function_HandleEvents) GetSymbol(handle, "HandleEvents");
+    Function_Update update = (Function_Update) GetSymbol(handle, "Update");
+    Function_Draw draw = (Function_Draw) GetSymbol(handle, "Draw");
+    Function_OnQuit onQuit = (Function_OnQuit) GetSymbol(handle, "OnQuit");
+
+    if (initialize == nullptr || handleEvents == nullptr || update == nullptr || draw == nullptr ||
+        onQuit == nullptr) {
+        SDL_Log("game library is missing entry points: %s", temp_name);
+        CloseLibrary(handle);
+        return false;
+    }
+
+    info->handle = handle;
+    info->Initialize = initialize;
+    info->HandleEvents = handleEvents;
+    info->Update = update;
+    info->Draw = draw;
+    info->OnQuit = onQuit;
     info->Timestamp = GetTimestamp();
     return true;
 }
 
-void UnloadDLL( DLL_INFO* info ) {
-    CloseLibrary(info->handle);
-    info->handle = nullptr;
+bool LoadDLL( DLL_INFO* info ) {
+    for (int attempt = 0; attempt < 40; attempt++) {
+        DLL_INFO candidate;
+        if (TryLoadDLL(&candidate)) {
+            // Vi stänger medvetet INTE den gamla libben: spelläget pekar på
+            // strängliteraler i den (t.ex. knapptexter), så att avlasta den
+            // skulle göra de pekarna ogiltiga. Den läcker därför per reload.
+            *info = candidate;
+            return true;
+        }
+        SDL_Delay(25);
+    }
+    return false;
 }
 
 void DLL_CheckStatus( DLL_INFO* dll ) {
-    std::time_t timestamp = GetTimestamp();
-    bool is_timestamp_changed = dll->Timestamp != timestamp;
-    if (is_timestamp_changed) {
-        SDL_Delay(100);
-        UnloadDLL(dll);
-        LoadDLL(dll);
+    long long timestamp = GetTimestamp();
+    if (dll->handle != nullptr && dll->Timestamp != timestamp) {
+        SDL_Log("reloading game library");
+        if (LoadDLL(dll)) {
+            SDL_Log("reloaded game library");
+        } else {
+            SDL_Log("reload failed, keeping previous build and retrying");
+        }
     }
 }
 
